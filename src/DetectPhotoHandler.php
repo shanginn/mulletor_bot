@@ -60,7 +60,7 @@ class DetectPhotoHandler implements UpdateHandlerInterface
         $containsWordMullet = str_contains(strtolower($message->text ?? $message->caption ?? ''), 'mullet');
         $containsWordMulletRu = str_contains(mb_strtolower($message->text ?? $message->caption ?? ''), 'маллет');
 
-        return $isDirectMessage || $isReplyToBot || $containsWordMullet || $containsWordMulletRu;
+        return $isDirectMessage || ($isReplyToBot && ($containsWordMullet || $containsWordMulletRu));
     }
 
     public function handle(UpdateInterface $update, TelegramBot $bot)
