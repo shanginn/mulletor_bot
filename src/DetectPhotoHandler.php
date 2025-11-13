@@ -55,11 +55,12 @@ class DetectPhotoHandler implements UpdateHandlerInterface
         }
 
         $isDirectMessage = $message->chat->type === 'private';
-        $isMentioned = str_contains($message->text ?? $message->caption ?? '', static::BOT_USERNAME);
         $isReplyToBot = $message->replyToMessage?->from?->username === static::BOT_USERNAME;
-        $hasMulletCommand = str_contains($message->text ?? $message->caption ?? '', '/mullet');
 
-        return $isDirectMessage || $isMentioned || $isReplyToBot || $hasMulletCommand;
+        $containsWordMullet = str_contains(strtolower($message->text ?? $message->caption ?? ''), 'mullet');
+        $containsWordMulletRu = str_contains(mb_strtolower($message->text ?? $message->caption ?? ''), 'маллет');
+
+        return $isDirectMessage || $isReplyToBot || $containsWordMullet || $containsWordMulletRu;
     }
 
     public function handle(UpdateInterface $update, TelegramBot $bot)
