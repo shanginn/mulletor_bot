@@ -98,17 +98,21 @@ class DetectPhotoHandler implements UpdateHandlerInterface
                 return;
             }
 
+            // Store payment context and get a short ID
+            $paymentId = PaymentStorage::store(
+                fileId: $photoToProcess->fileId,
+                messageId: $message->messageId,
+                chatId: $chatId
+            );
+
             // Send invoice for payment
             $bot->api->sendInvoice(
                 chatId: $chatId,
                 title: '🎸 Маллет-трансформация',
                 description: 'Превращение в легенду 80-х!',
-                payload: json_encode([
-                    'file_id' => $photoToProcess->fileId,
-                    'message_id' => $message->messageId,
-                ]),
+                payload: $paymentId,
                 currency: 'XTR',
-                prices: [new LabeledPrice(label: 'Маллет', amount: 10)],
+                prices: [new LabeledPrice(label: 'Маллет', amount: 5)],
                 replyParameters: $message->messageId ? new ReplyParameters(
                     messageId: $message->messageId,
                     allowSendingWithoutReply: true

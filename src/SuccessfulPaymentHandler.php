@@ -46,19 +46,22 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
         ]);
 
         try {
-            // Parse the payload to get the file_id
-            $payload = json_decode($successfulPayment->invoicePayload, true);
-            $fileId = $payload['file_id'] ?? null;
-            $originalMessageId = $payload['message_id'] ?? null;
+            // Retrieve payment context from storage
+            $paymentId = $successfulPayment->invoicePayload;
+            $context = PaymentStorage::retrieve($paymentId);
 
-            if (!$fileId) {
-                throw new \RuntimeException('No file_id in payment payload');
+            if (!$context) {
+                throw new \RuntimeException('Payment context not found or expired');
             }
 
-            // Send a "processing" message
+            $fileId = $context['file_id'];
+            $originalMessageId = $context['message_id'];
+            $originalChatId = $context['chat_id'];
+
+            // Send a "processing" message to the original chat
             $statusMessage = $bot->api->sendMessage(
-                chatId: $chatId,
-                text: '🎸 Ваш маллет готовится... Минутку!',
+                chatId: $originalChatId,
+                text: '🎸 Делаю маллет... Минутку!',
                 replyParameters: $originalMessageId ? new ReplyParameters(
                     messageId: $originalMessageId,
                     allowSendingWithoutReply: true
@@ -84,15 +87,15 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
 
             // Delete the status message
             $bot->api->deleteMessage(
-                chatId: $chatId,
+                chatId: $originalChatId,
                 messageId: $statusMessage->messageId,
             );
 
-            // Send the result with watermarked image
+            // Send the result with watermarked image to the original chat
             $bot->api->sendPhoto(
-                chatId: $chatId,
+                chatId: $originalChatId,
                 photo: new LocalFile($watermarkedImagePath),
-                caption: "🎸 Готово! Спереди — бизнес, сзади — вечеринка 🎸\n\n Сделано с помощью @mulletor_bot",
+                caption: "🎸 Готово! Спереди — бизнес, сзади — вечеринка 🎸",
                 replyParameters: $originalMessageId ? new ReplyParameters(
                     messageId: $originalMessageId,
                     allowSendingWithoutReply: true
@@ -102,12 +105,21 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
             // Clean up temporary file
             @unlink($watermarkedImagePath);
 
-            $this->logger->info("Mullet sent to chat: {$chatId}");
+            // Clean up payment storage
+            PaymentStorage::remove($paymentId);
+
+            $this->logger->info("Mullet sent to chat: {$originalChatId}");
 
         } catch (Throwable $e) {
+            // Get original chat ID from storage if available
+            $paymentId = $successfulPayment->invoicePayload;
+            $context = PaymentStorage::retrieve($paymentId);
+            $originalChatId = $context['chat_id'] ?? $chatId;
+
             $this->logger->error("Failed to create mullet after payment: {$e->getMessage()}", [
                 'exception' => $e,
                 'chat_id' => $chatId,
+                'original_chat_id' => $originalChatId,
                 'telegram_payment_charge_id' => $successfulPayment->telegramPaymentChargeId,
             ]);
 
@@ -118,7 +130,8 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                     chatId: self::DEV_CHAT_ID,
                     text: "❌ Mullet generation failed after payment\n\n" .
                           "User: {$username} (ID: {$message->from->id})\n" .
-                          "Chat: {$chatId}\n" .
+                          "Payment Chat: {$chatId}\n" .
+                          "Original Chat: {$originalChatId}\n" .
                           "Payment ID: {$successfulPayment->telegramPaymentChargeId}\n" .
                           "Amount: {$successfulPayment->totalAmount} stars\n\n" .
                           "Error: {$e->getMessage()}\n\n" .
@@ -141,7 +154,7 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                 ]);
 
                 $bot->api->sendMessage(
-                    chatId: $chatId,
+                    chatId: $originalChatId,
                     text: "❌ Не получилось создать маллет, деньги вернули\n\nОшибка: {$e->getMessage()}",
                 );
             } catch (Throwable $refundError) {
@@ -164,7 +177,7 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                 }
 
                 $bot->api->sendMessage(
-                    chatId: $chatId,
+                    chatId: $originalChatId,
                     text: "❌ Не получилось создать маллет. Напиши в поддержку для возврата денег",
                 );
             }

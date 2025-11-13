@@ -10,6 +10,7 @@ use Bot\Fal\Fal\FalClient;
 use Bot\ImageWatermarkService;
 use Bot\MulletService;
 use Bot\PreCheckoutHandler;
+use Bot\StartCommandHandler;
 use Bot\SuccessfulPaymentHandler;
 use Phenogram\Framework\TelegramBot;
 
@@ -31,6 +32,10 @@ $mulletService = new MulletService($fal);
 $watermarkService = new ImageWatermarkService();
 
 // Register handlers
+$startCommandHandler = new StartCommandHandler();
+$bot->addHandler($startCommandHandler)
+    ->supports($startCommandHandler::supports(...));
+
 $detectPhotoHandler = new DetectPhotoHandler($mulletService);
 $bot->addHandler($detectPhotoHandler)
     ->supports($detectPhotoHandler::supports(...));

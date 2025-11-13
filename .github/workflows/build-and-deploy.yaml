@@ -64,4 +64,4 @@ jobs:
             --set=envSecrets.TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
             --set=envSecrets.FAL_API_KEY="$FAL_API_KEY" \
           ;
-          kubectl rollout restart deployment/mulletor
+           kubectl rollout restart --namespace=mulletor deployment/mulletor-app
