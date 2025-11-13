@@ -50,15 +50,28 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
             $paymentId = $successfulPayment->invoicePayload;
             $context = PaymentStorage::retrieve($paymentId);
 
+            // Fall back to private chat if context not found
             if (!$context) {
-                throw new \RuntimeException('Payment context not found or expired');
+                $this->logger->warning("Payment context not found, falling back to private chat", [
+                    'payment_id' => $paymentId,
+                    'chat_id' => $chatId,
+                ]);
+
+                $fileId = null;
+                $originalMessageId = null;
+                $originalChatId = $chatId; // Send to private chat with user
+            } else {
+                $fileId = $context['file_id'];
+                $originalMessageId = $context['message_id'];
+                $originalChatId = $context['chat_id'];
             }
 
-            $fileId = $context['file_id'];
-            $originalMessageId = $context['message_id'];
-            $originalChatId = $context['chat_id'];
+            // If we don't have file_id, we can't proceed
+            if (!$fileId) {
+                throw new \RuntimeException('Payment context expired or invalid. Please send the photo again.');
+            }
 
-            // Send a "processing" message to the original chat
+            // Send a "processing" message to the target chat
             $statusMessage = $bot->api->sendMessage(
                 chatId: $originalChatId,
                 text: '🎸 Делаю маллет... Минутку!',
@@ -105,8 +118,10 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
             // Clean up temporary file
             @unlink($watermarkedImagePath);
 
-            // Clean up payment storage
-            PaymentStorage::remove($paymentId);
+            // Clean up payment storage if we have a payment ID
+            if (isset($paymentId)) {
+                PaymentStorage::remove($paymentId);
+            }
 
             $this->logger->info("Mullet sent to chat: {$originalChatId}");
 
