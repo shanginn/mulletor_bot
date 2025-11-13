@@ -15,6 +15,8 @@ use Throwable;
 
 class SuccessfulPaymentHandler implements UpdateHandlerInterface
 {
+    private const int DEV_CHAT_ID = -4576716287;
+
     private LoggerInterface $logger;
 
     public function __construct(
@@ -55,7 +57,10 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
             $statusMessage = $bot->api->sendMessage(
                 chatId: $chatId,
                 text: '🎸 Делаю маллет... Минутку!',
-                replyParameters: $originalMessageId ? new ReplyParameters(messageId: $originalMessageId) : null,
+                replyParameters: $originalMessageId ? new ReplyParameters(
+                    messageId: $originalMessageId,
+                    allowSendingWithoutReply: true
+                ) : null,
             );
 
             // Get the file URL from Telegram
@@ -81,7 +86,10 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                 chatId: $chatId,
                 photo: $mulletImageUrl,
                 caption: "🎸 Готово! Спереди — бизнес, сзади — вечеринка 🎸",
-                replyParameters: $originalMessageId ? new ReplyParameters(messageId: $originalMessageId) : null,
+                replyParameters: $originalMessageId ? new ReplyParameters(
+                    messageId: $originalMessageId,
+                    allowSendingWithoutReply: true
+                ) : null,
             );
 
             $this->logger->info("Mullet sent to chat: {$chatId}");
@@ -92,6 +100,23 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                 'chat_id' => $chatId,
                 'telegram_payment_charge_id' => $successfulPayment->telegramPaymentChargeId,
             ]);
+
+            // Send error to dev chat
+            try {
+                $username = $message->from->username ? "@{$message->from->username}" : $message->from->firstName ?? 'Unknown';
+                $bot->api->sendMessage(
+                    chatId: self::DEV_CHAT_ID,
+                    text: "❌ Mullet generation failed after payment\n\n" .
+                          "User: {$username} (ID: {$message->from->id})\n" .
+                          "Chat: {$chatId}\n" .
+                          "Payment ID: {$successfulPayment->telegramPaymentChargeId}\n" .
+                          "Amount: {$successfulPayment->totalAmount} stars\n\n" .
+                          "Error: {$e->getMessage()}\n\n" .
+                          "File: {$e->getFile()}:{$e->getLine()}",
+                );
+            } catch (Throwable $notifyError) {
+                $this->logger->error("Failed to send error to dev chat: {$notifyError->getMessage()}");
+            }
 
             // Refund the user
             try {
@@ -114,6 +139,19 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                     'exception' => $refundError,
                     'original_error' => $e->getMessage(),
                 ]);
+
+                // Send refund failure to dev chat too
+                try {
+                    $bot->api->sendMessage(
+                        chatId: self::DEV_CHAT_ID,
+                        text: "🚨 CRITICAL: Failed to refund payment!\n\n" .
+                              "User: {$message->from->id}\n" .
+                              "Payment ID: {$successfulPayment->telegramPaymentChargeId}\n" .
+                              "Refund error: {$refundError->getMessage()}",
+                    );
+                } catch (Throwable $criticalNotifyError) {
+                    $this->logger->error("Failed to send critical error to dev chat: {$criticalNotifyError->getMessage()}");
+                }
 
                 $bot->api->sendMessage(
                     chatId: $chatId,

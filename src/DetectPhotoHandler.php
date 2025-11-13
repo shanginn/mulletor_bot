@@ -90,7 +90,10 @@ class DetectPhotoHandler implements UpdateHandlerInterface
                 $bot->api->sendMessage(
                     chatId: $chatId,
                     text: '❌ Не вижу тут фотки',
-                    replyParameters: $message->messageId ? new ReplyParameters(messageId: $message->messageId) : null,
+                    replyParameters: $message->messageId ? new ReplyParameters(
+                        messageId: $message->messageId,
+                        allowSendingWithoutReply: true
+                    ) : null,
                 );
                 return;
             }
@@ -106,7 +109,10 @@ class DetectPhotoHandler implements UpdateHandlerInterface
                 ]),
                 currency: 'XTR',
                 prices: [new LabeledPrice(label: 'Маллет', amount: 10)],
-                replyParameters: $message->messageId ? new ReplyParameters(messageId: $message->messageId) : null,
+                replyParameters: $message->messageId ? new ReplyParameters(
+                    messageId: $message->messageId,
+                    allowSendingWithoutReply: true
+                ) : null,
             );
 
             $this->logger->info("Invoice sent for photo: {$photoToProcess->fileId}");
@@ -119,7 +125,10 @@ class DetectPhotoHandler implements UpdateHandlerInterface
             $bot->api->sendMessage(
                 chatId: $chatId,
                 text: "❌ Что-то пошло не так, попробуй ещё раз \nОшибка: {$e->getMessage()}",
-                replyParameters: $message->messageId ? new ReplyParameters(messageId: $message->messageId) : null,
+                replyParameters: $message->messageId ? new ReplyParameters(
+                    messageId: $message->messageId,
+                    allowSendingWithoutReply: true
+                ) : null,
             );
         }
     }

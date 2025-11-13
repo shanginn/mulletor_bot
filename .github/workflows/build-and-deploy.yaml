@@ -60,8 +60,8 @@ jobs:
           FAL_API_KEY: ${{ secrets.FAL_API_KEY }}
         run: |
           cd helm 
-          helm upgrade wtf-happend-bot --namespace=wtfhappendbot -f values.yaml . \
+          helm upgrade mulletor --namespace=mulletor -f values.yaml . \
             --set=envSecrets.TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
             --set=envSecrets.FAL_API_KEY="$FAL_API_KEY" \
           ;
-          kubectl rollout restart deployment/wtf-happend-bot
+          kubectl rollout restart deployment/mulletor
