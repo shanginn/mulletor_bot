@@ -1,0 +1,22 @@
+imagePullSecrets:
+  - name: dockerconfigjson-github-com
+
+image:
+  repository: ghcr.io/shanginn/mulletor_bot
+  pullPolicy: Always
+  tag: latest
+
+serviceAccount:
+  create: true
+  name: "mulletor-bot"
+
+deployment:
+  replicas: 1
+
+env:
+  APP_NAME: mulletor_bot
+  TELEGRAM_BOT_USERNAME: mulletor_bot
+
+envSecrets:
+  TELEGRAM_BOT_TOKEN: ""
+  FAL_API_KEY: ""
