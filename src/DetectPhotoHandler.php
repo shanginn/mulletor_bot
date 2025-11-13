@@ -102,7 +102,7 @@ class DetectPhotoHandler implements UpdateHandlerInterface
             $bot->api->sendInvoice(
                 chatId: $chatId,
                 title: '🎸 Маллет-трансформация',
-                description: 'Превращение в легенду 80-х! Спереди — бизнес, сзади — вечеринка',
+                description: 'Превращение в легенду 80-х!',
                 payload: json_encode([
                     'file_id' => $photoToProcess->fileId,
                     'message_id' => $message->messageId,

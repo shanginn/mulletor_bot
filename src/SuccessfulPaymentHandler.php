@@ -8,6 +8,7 @@ use Phenogram\Bindings\Types\Interfaces\UpdateInterface;
 use Phenogram\Bindings\Types\ReplyParameters;
 use Phenogram\Framework\Handler\UpdateHandlerInterface;
 use Phenogram\Framework\TelegramBot;
+use Phenogram\Framework\Type\LocalFile;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use PsrDiscovery\Discover;
@@ -21,6 +22,7 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
 
     public function __construct(
         private MulletService $mulletService,
+        private ImageWatermarkService $watermarkService,
     ) {
         $this->logger = Discover::log() ?? new NullLogger();
     }
@@ -56,7 +58,7 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
             // Send a "processing" message
             $statusMessage = $bot->api->sendMessage(
                 chatId: $chatId,
-                text: '🎸 Делаю маллет... Минутку!',
+                text: '🎸 Ваш маллет готовится... Минутку!',
                 replyParameters: $originalMessageId ? new ReplyParameters(
                     messageId: $originalMessageId,
                     allowSendingWithoutReply: true
@@ -75,22 +77,30 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
 
             $this->logger->info("Mullet created: {$mulletImageUrl}");
 
+            // Add watermark to the image
+            $watermarkedImagePath = $this->watermarkService->addWatermark($mulletImageUrl);
+
+            $this->logger->info("Watermark added: {$watermarkedImagePath}");
+
             // Delete the status message
             $bot->api->deleteMessage(
                 chatId: $chatId,
                 messageId: $statusMessage->messageId,
             );
 
-            // Send the result
+            // Send the result with watermarked image
             $bot->api->sendPhoto(
                 chatId: $chatId,
-                photo: $mulletImageUrl,
-                caption: "🎸 Готово! Спереди — бизнес, сзади — вечеринка 🎸",
+                photo: new LocalFile($watermarkedImagePath),
+                caption: "🎸 Готово! Спереди — бизнес, сзади — вечеринка 🎸\n\n Сделано с помощью @mulletor_bot",
                 replyParameters: $originalMessageId ? new ReplyParameters(
                     messageId: $originalMessageId,
                     allowSendingWithoutReply: true
                 ) : null,
             );
+
+            // Clean up temporary file
+            @unlink($watermarkedImagePath);
 
             $this->logger->info("Mullet sent to chat: {$chatId}");
 

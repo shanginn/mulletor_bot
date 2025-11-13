@@ -7,12 +7,13 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Bot\DetectPhotoHandler;
 use Bot\Fal\Fal;
 use Bot\Fal\Fal\FalClient;
+use Bot\ImageWatermarkService;
 use Bot\MulletService;
 use Bot\PreCheckoutHandler;
 use Bot\SuccessfulPaymentHandler;
 use Phenogram\Framework\TelegramBot;
 
-Dotenv\Dotenv::createUnsafeImmutable(__DIR__ . '/..')->load();
+Dotenv\Dotenv::createUnsafeImmutable(__DIR__ . '/..')->safeLoad();
 
 [
     'botToken'  => $botToken,
@@ -27,6 +28,7 @@ $bot = new TelegramBot(
 $falClient = new FalClient($falApiKey);
 $fal = new Fal($falClient);
 $mulletService = new MulletService($fal);
+$watermarkService = new ImageWatermarkService();
 
 // Register handlers
 $detectPhotoHandler = new DetectPhotoHandler($mulletService);
@@ -37,7 +39,7 @@ $preCheckoutHandler = new PreCheckoutHandler();
 $bot->addHandler($preCheckoutHandler)
     ->supports($preCheckoutHandler::supports(...));
 
-$successfulPaymentHandler = new SuccessfulPaymentHandler($mulletService);
+$successfulPaymentHandler = new SuccessfulPaymentHandler($mulletService, $watermarkService);
 $bot->addHandler($successfulPaymentHandler)
     ->supports($successfulPaymentHandler::supports(...));
 
