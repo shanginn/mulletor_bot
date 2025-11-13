@@ -8,6 +8,8 @@ use Bot\DetectPhotoHandler;
 use Bot\Fal\Fal;
 use Bot\Fal\Fal\FalClient;
 use Bot\MulletService;
+use Bot\PreCheckoutHandler;
+use Bot\SuccessfulPaymentHandler;
 use Phenogram\Framework\TelegramBot;
 
 Dotenv\Dotenv::createUnsafeImmutable(__DIR__ . '/..')->load();
@@ -26,10 +28,18 @@ $falClient = new FalClient($falApiKey);
 $fal = new Fal($falClient);
 $mulletService = new MulletService($fal);
 
-// Register DetectPhotoHandler
+// Register handlers
 $detectPhotoHandler = new DetectPhotoHandler($mulletService);
 $bot->addHandler($detectPhotoHandler)
     ->supports($detectPhotoHandler::supports(...));
+
+$preCheckoutHandler = new PreCheckoutHandler();
+$bot->addHandler($preCheckoutHandler)
+    ->supports($preCheckoutHandler::supports(...));
+
+$successfulPaymentHandler = new SuccessfulPaymentHandler($mulletService);
+$bot->addHandler($successfulPaymentHandler)
+    ->supports($successfulPaymentHandler::supports(...));
 
 $pressedCtrlC     = false;
 $gracefulShutdown = function (int $signal) use ($bot, &$pressedCtrlC): void {

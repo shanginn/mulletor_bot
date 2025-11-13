@@ -6,6 +6,7 @@ namespace Bot;
 
 use Phenogram\Bindings\ApiInterface;
 use Phenogram\Bindings\Types\Interfaces\UpdateInterface;
+use Phenogram\Bindings\Types\LabeledPrice;
 use Phenogram\Bindings\Types\ReplyParameters;
 use Phenogram\Framework\Handler\UpdateHandlerInterface;
 use Phenogram\Framework\TelegramBot;
@@ -67,13 +68,6 @@ class DetectPhotoHandler implements UpdateHandlerInterface
         $chatId = $message->chat->id;
 
         try {
-            // Send a "processing" message
-            $statusMessage = $bot->api->sendMessage(
-                chatId: $chatId,
-                text: '🎸 Делаю маллет... Минутку!',
-                replyParameters: $message->messageId ? new ReplyParameters(messageId: $message->messageId) : null,
-            );
-
             // Get the photo to process
             $photoToProcess = null;
 
@@ -93,44 +87,32 @@ class DetectPhotoHandler implements UpdateHandlerInterface
             }
 
             if ($photoToProcess === null) {
-                $bot->api->editMessageText(
-                    text: '❌ Не вижу тут фотки',
+                $bot->api->sendMessage(
                     chatId: $chatId,
-                    messageId: $statusMessage->messageId,
+                    text: '❌ Не вижу тут фотки',
+                    replyParameters: $message->messageId ? new ReplyParameters(messageId: $message->messageId) : null,
                 );
                 return;
             }
 
-            // Get the file URL from Telegram
-            $file = $bot->api->getFile(fileId: $photoToProcess->fileId);
-            $fileUrl = "https://api.telegram.org/file/bot{$bot->getToken()}/{$file->filePath}";
-
-            $this->logger->info("Processing mullet for file: {$fileUrl}");
-
-            // Transform the image
-            $result = $this->mulletService->addMullet($fileUrl);
-            $mulletImageUrl = $this->mulletService->getFirstImageUrl($result);
-
-            $this->logger->info("Mullet created: {$mulletImageUrl}");
-
-            // Delete the status message
-            $bot->api->deleteMessage(
+            // Send invoice for payment
+            $bot->api->sendInvoice(
                 chatId: $chatId,
-                messageId: $statusMessage->messageId,
-            );
-
-            // Send the result
-            $bot->api->sendPhoto(
-                chatId: $chatId,
-                photo: $mulletImageUrl,
-                caption: "🎸 Готово! Спереди — бизнес, сзади — вчеринка 🎸",
+                title: '🎸 Маллет-трансформация',
+                description: 'Превращение в легенду 80-х! Спереди — бизнес, сзади — вечеринка',
+                payload: json_encode([
+                    'file_id' => $photoToProcess->fileId,
+                    'message_id' => $message->messageId,
+                ]),
+                currency: 'XTR',
+                prices: [new LabeledPrice(label: 'Маллет', amount: 10)],
                 replyParameters: $message->messageId ? new ReplyParameters(messageId: $message->messageId) : null,
             );
 
-            $this->logger->info("Mullet sent to chat: {$chatId}");
+            $this->logger->info("Invoice sent for photo: {$photoToProcess->fileId}");
 
         } catch (Throwable $e) {
-            $this->logger->error("Failed to create mullet: {$e->getMessage()}", [
+            $this->logger->error("Failed to send invoice: {$e->getMessage()}", [
                 'exception' => $e,
             ]);
 
