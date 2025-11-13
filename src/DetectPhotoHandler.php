@@ -57,10 +57,10 @@ class DetectPhotoHandler implements UpdateHandlerInterface
         $isDirectMessage = $message->chat->type === 'private';
         $isReplyToBot = $message->replyToMessage?->from?->username === static::BOT_USERNAME;
 
-        $containsWordMullet = str_contains(strtolower($message->text ?? $message->caption ?? ''), 'mullet');
-        $containsWordMulletRu = str_contains(mb_strtolower($message->text ?? $message->caption ?? ''), 'маллет');
+        $containsWordMullet = str_contains(strtolower($message->text ?? $message->caption ?? ''), 'mullet')
+            || str_contains(mb_strtolower($message->text ?? $message->caption ?? ''), 'маллет');
 
-        return $isDirectMessage || ($isReplyToBot && ($containsWordMullet || $containsWordMulletRu));
+        return $isDirectMessage || $containsWordMullet;
     }
 
     public function handle(UpdateInterface $update, TelegramBot $bot)
@@ -99,15 +99,11 @@ class DetectPhotoHandler implements UpdateHandlerInterface
                 return;
             }
 
-            // Store payment context and get a short ID
-            $paymentId = PaymentStorage::store(
-                fileId: $photoToProcess->fileId,
-                messageId: $message->messageId,
-                chatId: $chatId
-            );
+            // Generate payment ID first
+            $paymentId = PaymentStorage::generateId();
 
-            // Send invoice for payment
-            $bot->api->sendInvoice(
+            // Send invoice for payment with the generated ID
+            $invoiceMessage = $bot->api->sendInvoice(
                 chatId: $chatId,
                 title: '🎸 Маллет-трансформация',
                 description: 'Превращение в легенду 80-х!',
@@ -118,6 +114,15 @@ class DetectPhotoHandler implements UpdateHandlerInterface
                     messageId: $message->messageId,
                     allowSendingWithoutReply: true
                 ) : null,
+            );
+
+            // Store payment context with invoice message ID using the same payment ID
+            PaymentStorage::storeWithId(
+                paymentId: $paymentId,
+                fileId: $photoToProcess->fileId,
+                messageId: $message->messageId,
+                chatId: $chatId,
+                invoiceMessageId: $invoiceMessage->messageId
             );
 
             $this->logger->info("Invoice sent for photo: {$photoToProcess->fileId}");

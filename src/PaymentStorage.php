@@ -12,25 +12,49 @@ class PaymentStorage
     private static array $storage = [];
 
     /**
+     * Generate a unique payment ID
+     *
+     * @return string Unique payment ID
+     */
+    public static function generateId(): string
+    {
+        return bin2hex(random_bytes(8));
+    }
+
+    /**
+     * Store payment context with a pre-generated ID
+     *
+     * @param string $paymentId
+     * @param string $fileId
+     * @param int    $messageId
+     * @param int    $chatId
+     * @param int    $invoiceMessageId
+     */
+    public static function storeWithId(string $paymentId, string $fileId, int $messageId, int $chatId, int $invoiceMessageId): void
+    {
+        self::$storage[$paymentId] = [
+            'file_id' => $fileId,
+            'message_id' => $messageId,
+            'chat_id' => $chatId,
+            'invoice_message_id' => $invoiceMessageId,
+            'timestamp' => time(),
+        ];
+    }
+
+    /**
      * Store payment context and return a unique ID
      *
      * @param string $fileId
      * @param int    $messageId
      * @param int    $chatId
+     * @param int    $invoiceMessageId
      *
      * @return string Unique payment ID
      */
-    public static function store(string $fileId, int $messageId, int $chatId): string
+    public static function store(string $fileId, int $messageId, int $chatId, int $invoiceMessageId): string
     {
-        $paymentId = bin2hex(random_bytes(8));
-
-        self::$storage[$paymentId] = [
-            'file_id' => $fileId,
-            'message_id' => $messageId,
-            'chat_id' => $chatId,
-            'timestamp' => time(),
-        ];
-
+        $paymentId = self::generateId();
+        self::storeWithId($paymentId, $fileId, $messageId, $chatId, $invoiceMessageId);
         return $paymentId;
     }
 
@@ -39,7 +63,7 @@ class PaymentStorage
      *
      * @param string $paymentId
      *
-     * @return array|null ['file_id' => string, 'message_id' => int, 'chat_id' => int] or null if not found
+     * @return array|null ['file_id' => string, 'message_id' => int, 'chat_id' => int, 'invoice_message_id' => int] or null if not found
      */
     public static function retrieve(string $paymentId): ?array
     {

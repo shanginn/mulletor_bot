@@ -60,15 +60,33 @@ class SuccessfulPaymentHandler implements UpdateHandlerInterface
                 $fileId = null;
                 $originalMessageId = null;
                 $originalChatId = $chatId; // Send to private chat with user
+                $invoiceMessageId = null;
             } else {
                 $fileId = $context['file_id'];
                 $originalMessageId = $context['message_id'];
                 $originalChatId = $context['chat_id'];
+                $invoiceMessageId = $context['invoice_message_id'];
             }
 
             // If we don't have file_id, we can't proceed
             if (!$fileId) {
                 throw new \RuntimeException('Payment context expired or invalid. Please send the photo again.');
+            }
+
+            // Delete the invoice message so others can't click it
+            if ($invoiceMessageId) {
+                try {
+                    $bot->api->deleteMessage(
+                        chatId: $originalChatId,
+                        messageId: $invoiceMessageId,
+                    );
+                    $this->logger->info("Invoice message deleted", [
+                        'chat_id' => $originalChatId,
+                        'invoice_message_id' => $invoiceMessageId,
+                    ]);
+                } catch (Throwable $deleteError) {
+                    $this->logger->warning("Failed to delete invoice message: {$deleteError->getMessage()}");
+                }
             }
 
             // Send a "processing" message to the target chat
